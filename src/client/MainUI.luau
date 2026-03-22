@@ -116,6 +116,9 @@ function MainUI.init()
 	MainUI.createSeasonInfoPanel(sg)
 	MainUI.createLeaderboardPanel(sg)
 
+	-- Bus UI elements
+	MainUI.createBusUI(sg)
+
 	-- Shop panel
 	ShopUI.createShopPanel(sg)
 
@@ -2137,6 +2140,241 @@ function MainUI.listenForEvents()
 			cam.dramaticReveal(data.targetPosition)
 		end
 	end)
+
+	-- Bus system events
+	MainUI._listenBusEvents()
+end
+
+-- ============================================================
+-- BUS UI — Countdown, Cinematic, Arrival
+-- ============================================================
+
+function MainUI.createBusUI(parent)
+	-- Bus countdown timer (big text on screen)
+	local countdownFrame = Instance.new("Frame")
+	countdownFrame.Name = "BusCountdown"
+	countdownFrame.Size = UDim2.new(0, 300, 0, 80)
+	countdownFrame.Position = UDim2.new(0.5, -150, 0, 20)
+	countdownFrame.BackgroundColor3 = Color3.fromHex("#0A0610")
+	countdownFrame.BackgroundTransparency = 0.3
+	countdownFrame.BorderSizePixel = 0
+	countdownFrame.Visible = false
+	countdownFrame.ZIndex = 20
+	countdownFrame.Parent = parent
+	createCorner(countdownFrame, 12)
+	createStroke(countdownFrame, Color3.fromHex("#FFD700"), 2)
+
+	local countdownTitle = Instance.new("TextLabel")
+	countdownTitle.Name = "Title"
+	countdownTitle.Size = UDim2.new(1, 0, 0.4, 0)
+	countdownTitle.BackgroundTransparency = 1
+	countdownTitle.Text = "BUS DEPARTING IN"
+	countdownTitle.TextColor3 = Color3.fromHex("#FFD700")
+	countdownTitle.TextSize = math.floor(14 * BASE_TEXT_SCALE)
+	countdownTitle.Font = Enum.Font.GothamBold
+	countdownTitle.Parent = countdownFrame
+
+	local countdownTime = Instance.new("TextLabel")
+	countdownTime.Name = "TimeLabel"
+	countdownTime.Size = UDim2.new(1, 0, 0.6, 0)
+	countdownTime.Position = UDim2.new(0, 0, 0.4, 0)
+	countdownTime.BackgroundTransparency = 1
+	countdownTime.Text = "1:00"
+	countdownTime.TextColor3 = Color3.new(1, 1, 1)
+	countdownTime.TextSize = math.floor(32 * BASE_TEXT_SCALE)
+	countdownTime.Font = Enum.Font.GothamBold
+	countdownTime.Parent = countdownFrame
+
+	-- Cinematic overlay (letterbox + text)
+	local cinematicFrame = Instance.new("Frame")
+	cinematicFrame.Name = "BusCinematic"
+	cinematicFrame.Size = UDim2.new(1, 0, 1, 0)
+	cinematicFrame.BackgroundTransparency = 1
+	cinematicFrame.Visible = false
+	cinematicFrame.ZIndex = 50
+	cinematicFrame.Parent = parent
+
+	-- Top letterbox bar
+	local topBar = Instance.new("Frame")
+	topBar.Name = "TopBar"
+	topBar.Size = UDim2.new(1, 0, 0.12, 0)
+	topBar.Position = UDim2.new(0, 0, 0, 0)
+	topBar.BackgroundColor3 = Color3.new(0, 0, 0)
+	topBar.BorderSizePixel = 0
+	topBar.ZIndex = 51
+	topBar.Parent = cinematicFrame
+
+	-- Bottom letterbox bar
+	local bottomBar = Instance.new("Frame")
+	bottomBar.Name = "BottomBar"
+	bottomBar.Size = UDim2.new(1, 0, 0.12, 0)
+	bottomBar.Position = UDim2.new(0, 0, 0.88, 0)
+	bottomBar.BackgroundColor3 = Color3.new(0, 0, 0)
+	bottomBar.BorderSizePixel = 0
+	bottomBar.ZIndex = 51
+	bottomBar.Parent = cinematicFrame
+
+	-- Dark background overlay
+	local darkOverlay = Instance.new("Frame")
+	darkOverlay.Name = "DarkOverlay"
+	darkOverlay.Size = UDim2.new(1, 0, 0.76, 0)
+	darkOverlay.Position = UDim2.new(0, 0, 0.12, 0)
+	darkOverlay.BackgroundColor3 = Color3.new(0, 0, 0)
+	darkOverlay.BackgroundTransparency = 0.3
+	darkOverlay.BorderSizePixel = 0
+	darkOverlay.ZIndex = 50
+	darkOverlay.Parent = cinematicFrame
+
+	-- Center text
+	local cinematicText = Instance.new("TextLabel")
+	cinematicText.Name = "CinematicText"
+	cinematicText.Size = UDim2.new(0.8, 0, 0.15, 0)
+	cinematicText.Position = UDim2.new(0.1, 0, 0.42, 0)
+	cinematicText.BackgroundTransparency = 1
+	cinematicText.Text = "EN ROUTE TO THE MANSION..."
+	cinematicText.TextColor3 = Color3.fromHex("#FFD700")
+	cinematicText.TextSize = math.floor(28 * BASE_TEXT_SCALE)
+	cinematicText.Font = Enum.Font.GothamBold
+	cinematicText.ZIndex = 52
+	cinematicText.Parent = cinematicFrame
+
+	-- Loading dots
+	local dotsLabel = Instance.new("TextLabel")
+	dotsLabel.Name = "DotsLabel"
+	dotsLabel.Size = UDim2.new(0.5, 0, 0.08, 0)
+	dotsLabel.Position = UDim2.new(0.25, 0, 0.58, 0)
+	dotsLabel.BackgroundTransparency = 1
+	dotsLabel.Text = "..."
+	dotsLabel.TextColor3 = Color3.fromHex("#E8A0BF")
+	dotsLabel.TextSize = math.floor(24 * BASE_TEXT_SCALE)
+	dotsLabel.Font = Enum.Font.GothamBold
+	dotsLabel.ZIndex = 52
+	dotsLabel.Parent = cinematicFrame
+
+	-- Arrival overlay
+	local arriveFrame = Instance.new("Frame")
+	arriveFrame.Name = "BusArrival"
+	arriveFrame.Size = UDim2.new(1, 0, 1, 0)
+	arriveFrame.BackgroundColor3 = Color3.new(0, 0, 0)
+	arriveFrame.BackgroundTransparency = 0.5
+	arriveFrame.Visible = false
+	arriveFrame.ZIndex = 50
+	arriveFrame.Parent = parent
+
+	local arriveText = Instance.new("TextLabel")
+	arriveText.Name = "ArriveText"
+	arriveText.Size = UDim2.new(0.8, 0, 0.15, 0)
+	arriveText.Position = UDim2.new(0.1, 0, 0.42, 0)
+	arriveText.BackgroundTransparency = 1
+	arriveText.Text = "WELCOME TO THE MANSION OF MAYHEM"
+	arriveText.TextColor3 = Color3.fromHex("#FFD700")
+	arriveText.TextSize = math.floor(32 * BASE_TEXT_SCALE)
+	arriveText.Font = Enum.Font.GothamBold
+	arriveText.ZIndex = 51
+	arriveText.Parent = arriveFrame
+end
+
+function MainUI._listenBusEvents()
+	local remotes = ReplicatedStorage:WaitForChild("Remotes")
+	local sg = playerGui:FindFirstChild("MansionUI")
+	if not sg then return end
+
+	-- Bus countdown
+	local countdownEvent = remotes:FindFirstChild("BusCountdown")
+	if countdownEvent then
+		countdownEvent.OnClientEvent:Connect(function(data)
+			local countdownFrame = sg:FindFirstChild("BusCountdown")
+			if not countdownFrame then return end
+
+			if data.timeRemaining and data.timeRemaining > 0 then
+				countdownFrame.Visible = true
+				local timeLabel = countdownFrame:FindFirstChild("TimeLabel")
+				if timeLabel then
+					timeLabel.Text = data.timeStr or tostring(data.timeRemaining)
+				end
+			else
+				countdownFrame.Visible = false
+			end
+		end)
+	end
+
+	-- Bus cinematic
+	local cinematicEvent = remotes:FindFirstChild("BusCinematic")
+	if cinematicEvent then
+		cinematicEvent.OnClientEvent:Connect(function(data)
+			local cinematicFrame = sg:FindFirstChild("BusCinematic")
+			if not cinematicFrame then return end
+
+			if data.action == "start" then
+				cinematicFrame.Visible = true
+				-- Hide countdown
+				local countdownFrame = sg:FindFirstChild("BusCountdown")
+				if countdownFrame then countdownFrame.Visible = false end
+
+				-- Update text if provided
+				local textLabel = cinematicFrame:FindFirstChild("CinematicText")
+				if textLabel and data.text then
+					textLabel.Text = data.text
+				end
+
+				-- Animate loading dots
+				task.spawn(function()
+					local dotsLabel = cinematicFrame:FindFirstChild("DotsLabel")
+					if dotsLabel then
+						local dots = {".", "..", "...", "....", "....."}
+						local idx = 1
+						while cinematicFrame.Visible do
+							dotsLabel.Text = dots[idx]
+							idx = (idx % #dots) + 1
+							task.wait(0.5)
+						end
+					end
+				end)
+
+			elseif data.action == "stop" then
+				cinematicFrame.Visible = false
+			end
+		end)
+	end
+
+	-- Bus arrive
+	local arriveEvent = remotes:FindFirstChild("BusArrive")
+	if arriveEvent then
+		arriveEvent.OnClientEvent:Connect(function(data)
+			-- Hide cinematic
+			local cinematicFrame = sg:FindFirstChild("BusCinematic")
+			if cinematicFrame then cinematicFrame.Visible = false end
+
+			-- Show arrival splash
+			local arriveFrame = sg:FindFirstChild("BusArrival")
+			if arriveFrame then
+				local arriveText = arriveFrame:FindFirstChild("ArriveText")
+				if arriveText and data.message then
+					arriveText.Text = data.message
+				end
+
+				arriveFrame.Visible = true
+				arriveFrame.BackgroundTransparency = 0
+
+				-- Fade out after 3 seconds
+				task.delay(1, function()
+					TweenService:Create(arriveFrame, TweenInfo.new(2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+						BackgroundTransparency = 1,
+					}):Play()
+					if arriveText then
+						TweenService:Create(arriveText, TweenInfo.new(2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+							TextTransparency = 1,
+						}):Play()
+					end
+					task.delay(2.5, function()
+						arriveFrame.Visible = false
+						arriveFrame.BackgroundTransparency = 0.5
+						if arriveText then arriveText.TextTransparency = 0 end
+					end)
+				end)
+			end
+		end)
+	end
 end
 
 return MainUI

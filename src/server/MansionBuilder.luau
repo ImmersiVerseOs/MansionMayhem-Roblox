@@ -1,7 +1,7 @@
 -- ============================================================
 -- MANSION BUILDER — Luxury Reality TV Mansion
 -- Love Island Villa x Luxury Penthouse aesthetic
--- Complete rewrite with fully furnished rooms
+-- Fully enclosed mansion with outer shell, roof, doorways
 -- ============================================================
 
 local TweenService = game:GetService("TweenService")
@@ -17,6 +17,22 @@ local FLOOR_Y = 0
 local FLOOR2_Y = 22
 local WALL_HEIGHT = 16
 local ROOM_SIZE = 45
+
+-- Mansion outer bounds (used for outer shell)
+-- Ground floor spans from lobby (X=-5) to elevator (X=210), Z from -60 to 55
+local OUTER_X_MIN = -10
+local OUTER_X_MAX = 210
+local OUTER_Z_MIN = -62
+local OUTER_Z_MAX = 55
+local OUTER_WIDTH = OUTER_X_MAX - OUTER_X_MIN
+local OUTER_DEPTH = OUTER_Z_MAX - OUTER_Z_MIN
+local OUTER_CX = (OUTER_X_MIN + OUTER_X_MAX) / 2
+local OUTER_CZ = (OUTER_Z_MIN + OUTER_Z_MAX) / 2
+
+-- Doorway dimensions
+local DOORWAY_WIDTH = 6
+local DOORWAY_HEIGHT = 10
+local DOOR_FRAME_THICKNESS = 0.5
 
 -- Color palette — warm luxury tones
 local MARBLE_WHITE  = Color3.fromHex("#F0E6D8")
@@ -108,6 +124,147 @@ function MansionBuilder.createSign(parent, text, pos, size, color, rotation)
 end
 
 -- ============================================================
+-- DOORWAY HELPER — Creates a wall with a doorway opening
+-- The wall is split into 3 parts: left section, above-door section, right section
+-- Plus gold door frame trim
+-- ============================================================
+
+function MansionBuilder.createWallWithDoorway(parent, name, wallPos, wallSize, doorCenterOffset, wallColor, floorY)
+	-- wallPos = center of the full wall
+	-- wallSize = full wall dimensions (X, Y, Z)
+	-- doorCenterOffset = offset along the long axis of the wall for the door center (0 = centered)
+	-- For X-axis walls (WallNorth/South), the door offset is along X
+	-- For Z-axis walls (WallEast/West), the door offset is along Z
+
+	local wc = wallColor or WALL_COLOR
+	local fy = floorY or FLOOR_Y
+	local dw = DOORWAY_WIDTH
+	local dh = DOORWAY_HEIGHT
+	local offset = doorCenterOffset or 0
+
+	-- Determine wall orientation
+	local isXWall = wallSize.X > wallSize.Z -- wall stretches along X axis
+
+	if isXWall then
+		local fullLen = wallSize.X
+		local wallThick = wallSize.Z
+		local wallH = wallSize.Y
+
+		local doorLeft = offset - dw / 2
+		local doorRight = offset + dw / 2
+
+		-- Left section (from -fullLen/2 to doorLeft)
+		local leftLen = (fullLen / 2) + doorLeft
+		if leftLen > 0.5 then
+			local leftCx = wallPos.X - fullLen / 2 + leftLen / 2
+			MansionBuilder.createPart(parent, name .. "_L",
+				Vector3.new(leftCx, wallPos.Y, wallPos.Z),
+				Vector3.new(leftLen, wallH, wallThick), wc)
+		end
+
+		-- Right section (from doorRight to fullLen/2)
+		local rightLen = (fullLen / 2) - doorRight
+		if rightLen > 0.5 then
+			local rightCx = wallPos.X + fullLen / 2 - rightLen / 2
+			MansionBuilder.createPart(parent, name .. "_R",
+				Vector3.new(rightCx, wallPos.Y, wallPos.Z),
+				Vector3.new(rightLen, wallH, wallThick), wc)
+		end
+
+		-- Above-door section
+		local aboveH = wallH - dh
+		if aboveH > 0.5 then
+			local aboveCy = wallPos.Y + wallH / 2 - aboveH / 2
+			MansionBuilder.createPart(parent, name .. "_Top",
+				Vector3.new(wallPos.X + offset, aboveCy, wallPos.Z),
+				Vector3.new(dw, aboveH, wallThick), wc)
+		end
+
+		-- Gold door frame
+		local doorBottomY = wallPos.Y - wallH / 2
+		-- Left jamb
+		MansionBuilder.createPart(parent, name .. "_FrameL",
+			Vector3.new(wallPos.X + doorLeft, doorBottomY + dh / 2, wallPos.Z),
+			Vector3.new(DOOR_FRAME_THICKNESS, dh, wallThick + 0.4), GOLD, Enum.Material.Metal)
+		-- Right jamb
+		MansionBuilder.createPart(parent, name .. "_FrameR",
+			Vector3.new(wallPos.X + doorRight, doorBottomY + dh / 2, wallPos.Z),
+			Vector3.new(DOOR_FRAME_THICKNESS, dh, wallThick + 0.4), GOLD, Enum.Material.Metal)
+		-- Top lintel
+		MansionBuilder.createPart(parent, name .. "_FrameTop",
+			Vector3.new(wallPos.X + offset, doorBottomY + dh, wallPos.Z),
+			Vector3.new(dw + DOOR_FRAME_THICKNESS * 2, DOOR_FRAME_THICKNESS, wallThick + 0.4), GOLD, Enum.Material.Metal)
+	else
+		-- Z-axis wall (stretches along Z)
+		local fullLen = wallSize.Z
+		local wallThick = wallSize.X
+		local wallH = wallSize.Y
+
+		local doorLeft = offset - dw / 2
+		local doorRight = offset + dw / 2
+
+		-- Left section (negative Z side)
+		local leftLen = (fullLen / 2) + doorLeft
+		if leftLen > 0.5 then
+			local leftCz = wallPos.Z - fullLen / 2 + leftLen / 2
+			MansionBuilder.createPart(parent, name .. "_L",
+				Vector3.new(wallPos.X, wallPos.Y, leftCz),
+				Vector3.new(wallThick, wallH, leftLen), wc)
+		end
+
+		-- Right section (positive Z side)
+		local rightLen = (fullLen / 2) - doorRight
+		if rightLen > 0.5 then
+			local rightCz = wallPos.Z + fullLen / 2 - rightLen / 2
+			MansionBuilder.createPart(parent, name .. "_R",
+				Vector3.new(wallPos.X, wallPos.Y, rightCz),
+				Vector3.new(wallThick, wallH, rightLen), wc)
+		end
+
+		-- Above-door section
+		local aboveH = wallH - dh
+		if aboveH > 0.5 then
+			local aboveCy = wallPos.Y + wallH / 2 - aboveH / 2
+			MansionBuilder.createPart(parent, name .. "_Top",
+				Vector3.new(wallPos.X, aboveCy, wallPos.Z + offset),
+				Vector3.new(wallThick, aboveH, dw), wc)
+		end
+
+		-- Gold door frame
+		local doorBottomY = wallPos.Y - wallH / 2
+		-- Left jamb
+		MansionBuilder.createPart(parent, name .. "_FrameL",
+			Vector3.new(wallPos.X, doorBottomY + dh / 2, wallPos.Z + doorLeft),
+			Vector3.new(wallThick + 0.4, dh, DOOR_FRAME_THICKNESS), GOLD, Enum.Material.Metal)
+		-- Right jamb
+		MansionBuilder.createPart(parent, name .. "_FrameR",
+			Vector3.new(wallPos.X, doorBottomY + dh / 2, wallPos.Z + doorRight),
+			Vector3.new(wallThick + 0.4, dh, DOOR_FRAME_THICKNESS), GOLD, Enum.Material.Metal)
+		-- Top lintel
+		MansionBuilder.createPart(parent, name .. "_FrameTop",
+			Vector3.new(wallPos.X, doorBottomY + dh, wallPos.Z + offset),
+			Vector3.new(wallThick + 0.4, DOOR_FRAME_THICKNESS, dw + DOOR_FRAME_THICKNESS * 2), GOLD, Enum.Material.Metal)
+	end
+end
+
+-- ============================================================
+-- WINDOW HELPER — Creates a transparent glass section in a wall
+-- ============================================================
+
+function MansionBuilder.createWindow(parent, pos, size, name)
+	local win = MansionBuilder.createPart(parent, name or "Window", pos, size, GLASS_BLUE, Enum.Material.Glass)
+	win.Transparency = 0.5
+	-- Gold frame around window
+	MansionBuilder.createPart(parent, (name or "Window") .. "_FrameTop",
+		pos + Vector3.new(0, size.Y / 2, 0),
+		Vector3.new(size.X + 0.4, 0.3, size.Z + 0.4), GOLD, Enum.Material.Metal)
+	MansionBuilder.createPart(parent, (name or "Window") .. "_FrameBot",
+		pos - Vector3.new(0, size.Y / 2, 0),
+		Vector3.new(size.X + 0.4, 0.3, size.Z + 0.4), GOLD, Enum.Material.Metal)
+	return win
+end
+
+-- ============================================================
 -- NEW FURNITURE HELPERS
 -- ============================================================
 
@@ -142,7 +299,6 @@ function MansionBuilder.createCouch(parent, pos, size, rotation, color)
 	local pillowColors = {GOLD_BRIGHT, NEON_PINK, ROSE_GOLD}
 	for i = 1, 2 do
 		local px = (i == 1) and -2 or 2
-		local pOffset = Vector3.new(px, 1.2, 0)
 		MansionBuilder.createPart(couch, "Pillow" .. i,
 			pos + Vector3.new(px, 1.2, -1),
 			Vector3.new(1.5, 1, 1.2),
@@ -481,13 +637,14 @@ function MansionBuilder.createFountain(parent, pos)
 	pillar.Parent = fountain
 
 	-- Water jet glow
-	local jet = MansionBuilder.createNeon(fountain, "Jet", pos + Vector3.new(0, 8, 0), Vector3.new(0.5, 4, 0.5), SKY_BLUE)
+	MansionBuilder.createNeon(fountain, "Jet", pos + Vector3.new(0, 8, 0), Vector3.new(0.5, 4, 0.5), SKY_BLUE)
 
 	return fountain
 end
 
 -- ============================================================
 -- ROOM SHELL HELPER — builds floor, ceiling, walls for a room
+-- Now supports doorway specification
 -- ============================================================
 
 function MansionBuilder.createRoomShell(parent, name, cx, cy, cz, width, depth, wallHeight, floorColor, wallColor, ceilColor, floorMat)
@@ -511,7 +668,7 @@ function MansionBuilder.createRoomShell(parent, name, cx, cy, cz, width, depth, 
 		Vector3.new(width, 1, depth),
 		ceilColor or DARK)
 
-	-- Walls — North, South, East, West
+	-- Walls — North, South, East, West (solid by default)
 	MansionBuilder.createPart(room, "WallNorth",
 		Vector3.new(cx, cy + wh / 2, cz + hd),
 		Vector3.new(width, wh, 1),
@@ -543,6 +700,25 @@ function MansionBuilder.createRoomShell(parent, name, cx, cy, cz, width, depth, 
 end
 
 -- ============================================================
+-- Helper to replace a solid wall with a doorway version
+-- Removes the named wall part and adds doorway sections
+-- ============================================================
+
+function MansionBuilder.addDoorwayToWall(room, wallName, doorOffset, floorY)
+	local wall = room:FindFirstChild(wallName)
+	if not wall then return end
+
+	local wallPos = wall.Position
+	local wallSize = wall.Size
+	local wallColor = wall.Color
+	local fy = floorY or FLOOR_Y
+
+	wall:Destroy()
+
+	MansionBuilder.createWallWithDoorway(room, wallName, wallPos, wallSize, doorOffset or 0, wallColor, fy)
+end
+
+-- ============================================================
 -- MAIN BUILD FUNCTION
 -- ============================================================
 
@@ -570,11 +746,268 @@ function MansionBuilder.build()
 	-- Rooftop
 	MansionBuilder.buildRooftop(mansion)
 
+	-- Outer Shell — wraps the entire mansion
+	MansionBuilder.buildOuterShell(mansion)
+
+	-- Roof over upper floor
+	MansionBuilder.buildRoof(mansion)
+
+	-- Add doorways between rooms and corridor
+	MansionBuilder.addAllDoorways(mansion)
+
+	-- Add windows to exterior walls
+	MansionBuilder.addExteriorWindows(mansion)
+
 	-- Lighting
 	MansionBuilder.setupLighting()
 
 	print("[MansionBuilder] Luxury mansion built!")
 	return mansion
+end
+
+-- ============================================================
+-- OUTER SHELL — 4 exterior walls wrapping both floors
+-- ============================================================
+
+function MansionBuilder.buildOuterShell(parent)
+	local shell = Instance.new("Folder")
+	shell.Name = "OuterShell"
+	shell.Parent = parent
+
+	local totalHeight = FLOOR2_Y + WALL_HEIGHT + 1 -- full height of both floors
+	local cy = totalHeight / 2
+
+	-- West wall (front entrance side) — has main entrance doorway
+	MansionBuilder.createWallWithDoorway(shell, "OuterWallWest",
+		Vector3.new(OUTER_X_MIN, cy, OUTER_CZ),
+		Vector3.new(1.5, totalHeight, OUTER_DEPTH),
+		0, -- door centered at Z=0 (lobby entrance)
+		WALL_COLOR, FLOOR_Y)
+
+	-- East wall (back side, elevator side)
+	MansionBuilder.createPart(shell, "OuterWallEast",
+		Vector3.new(OUTER_X_MAX, cy, OUTER_CZ),
+		Vector3.new(1.5, totalHeight, OUTER_DEPTH), WALL_COLOR)
+
+	-- North wall (positive Z side)
+	MansionBuilder.createPart(shell, "OuterWallNorth",
+		Vector3.new(OUTER_CX, cy, OUTER_Z_MAX),
+		Vector3.new(OUTER_WIDTH, totalHeight, 1.5), WALL_COLOR)
+
+	-- South wall (negative Z side)
+	MansionBuilder.createPart(shell, "OuterWallSouth",
+		Vector3.new(OUTER_CX, cy, OUTER_Z_MIN),
+		Vector3.new(OUTER_WIDTH, totalHeight, 1.5), WALL_COLOR)
+end
+
+-- ============================================================
+-- ROOF — Covers the entire upper floor
+-- ============================================================
+
+function MansionBuilder.buildRoof(parent)
+	local roof = Instance.new("Folder")
+	roof.Name = "Roof"
+	roof.Parent = parent
+
+	local roofY = FLOOR2_Y + WALL_HEIGHT + 1
+
+	-- Main flat roof slab covering the building footprint
+	-- Rooftop area is open-air, so the roof covers everything EXCEPT the rooftop zone
+	-- Rooftop zone is cx=100, cz=0, 120x100 — at Y = roofY
+	-- The rooftop buildRooftop already creates a floor at ry = FLOOR2_Y + WALL_HEIGHT + 2
+	-- So the roof covers the area that ISN'T the rooftop
+
+	-- Roof section west of rooftop (X from OUTER_X_MIN to 40)
+	local westRoofWidth = 40 - OUTER_X_MIN
+	if westRoofWidth > 1 then
+		MansionBuilder.createPart(roof, "RoofWest",
+			Vector3.new(OUTER_X_MIN + westRoofWidth / 2, roofY, OUTER_CZ),
+			Vector3.new(westRoofWidth, 1.5, OUTER_DEPTH),
+			Color3.fromHex("#1A1225"), Enum.Material.SmoothPlastic)
+	end
+
+	-- Roof section east of rooftop (X from 160 to OUTER_X_MAX)
+	local eastRoofWidth = OUTER_X_MAX - 160
+	if eastRoofWidth > 1 then
+		MansionBuilder.createPart(roof, "RoofEast",
+			Vector3.new(160 + eastRoofWidth / 2, roofY, OUTER_CZ),
+			Vector3.new(eastRoofWidth, 1.5, OUTER_DEPTH),
+			Color3.fromHex("#1A1225"), Enum.Material.SmoothPlastic)
+	end
+
+	-- Roof section north of rooftop (X from 40 to 160, Z from rooftop north edge to building north)
+	local rooftopNorthZ = 50
+	local northRoofDepth = OUTER_Z_MAX - rooftopNorthZ
+	if northRoofDepth > 1 then
+		MansionBuilder.createPart(roof, "RoofNorth",
+			Vector3.new(100, roofY, rooftopNorthZ + northRoofDepth / 2),
+			Vector3.new(120, 1.5, northRoofDepth),
+			Color3.fromHex("#1A1225"), Enum.Material.SmoothPlastic)
+	end
+
+	-- Roof section south of rooftop (X from 40 to 160, Z from building south to rooftop south edge)
+	local rooftopSouthZ = -50
+	local southRoofDepth = rooftopSouthZ - OUTER_Z_MIN
+	if southRoofDepth > 1 then
+		MansionBuilder.createPart(roof, "RoofSouth",
+			Vector3.new(100, roofY, OUTER_Z_MIN + southRoofDepth / 2),
+			Vector3.new(120, 1.5, southRoofDepth),
+			Color3.fromHex("#1A1225"), Enum.Material.SmoothPlastic)
+	end
+
+	-- Rooftop stairwell / elevator access enclosure
+	-- Small enclosed room on the rooftop for elevator exit
+	local encX, encZ = 195, 0
+	local encW, encD = 16, 16
+	local encH = 12
+	MansionBuilder.createPart(roof, "StairEncN",
+		Vector3.new(encX, roofY + encH / 2 + 1, encZ + encD / 2),
+		Vector3.new(encW, encH, 1), WALL_COLOR)
+	MansionBuilder.createPart(roof, "StairEncS",
+		Vector3.new(encX, roofY + encH / 2 + 1, encZ - encD / 2),
+		Vector3.new(encW, encH, 1), WALL_COLOR)
+	MansionBuilder.createPart(roof, "StairEncE",
+		Vector3.new(encX + encW / 2, roofY + encH / 2 + 1, encZ),
+		Vector3.new(1, encH, encD), WALL_COLOR)
+	-- West side has doorway to rooftop
+	MansionBuilder.createWallWithDoorway(roof, "StairEncW",
+		Vector3.new(encX - encW / 2, roofY + encH / 2 + 1, encZ),
+		Vector3.new(1, encH, encD),
+		0, WALL_COLOR, roofY + 1)
+	-- Small roof on enclosure
+	MansionBuilder.createPart(roof, "StairEncRoof",
+		Vector3.new(encX, roofY + encH + 1.5, encZ),
+		Vector3.new(encW + 2, 1, encD + 2),
+		Color3.fromHex("#1A1225"), Enum.Material.SmoothPlastic)
+
+	-- Gold trim along roof edge
+	MansionBuilder.createNeon(roof, "RoofTrimN",
+		Vector3.new(OUTER_CX, roofY + 0.8, OUTER_Z_MAX),
+		Vector3.new(OUTER_WIDTH, 0.3, 1.5), GOLD)
+	MansionBuilder.createNeon(roof, "RoofTrimS",
+		Vector3.new(OUTER_CX, roofY + 0.8, OUTER_Z_MIN),
+		Vector3.new(OUTER_WIDTH, 0.3, 1.5), GOLD)
+	MansionBuilder.createNeon(roof, "RoofTrimE",
+		Vector3.new(OUTER_X_MAX, roofY + 0.8, OUTER_CZ),
+		Vector3.new(1.5, 0.3, OUTER_DEPTH), GOLD)
+	MansionBuilder.createNeon(roof, "RoofTrimW",
+		Vector3.new(OUTER_X_MIN, roofY + 0.8, OUTER_CZ),
+		Vector3.new(1.5, 0.3, OUTER_DEPTH), GOLD)
+end
+
+-- ============================================================
+-- ADD ALL DOORWAYS — Punch doorways between rooms and corridor
+-- ============================================================
+
+function MansionBuilder.addAllDoorways(mansion)
+	-- The corridor runs at X=110, Z=0, stretching X from 10 to 210, width 18 (Z from -9 to 9)
+	-- Rooms connect to the corridor via their walls facing the corridor
+
+	-- Lobby (cx=20, cz=0, 50x50) — connects east to corridor
+	-- The lobby's east wall faces the corridor. Remove it and add doorway.
+	local lobby = mansion:FindFirstChild("Lobby")
+	if lobby then
+		MansionBuilder.addDoorwayToWall(lobby, "WallNorth", 0, FLOOR_Y)
+		MansionBuilder.addDoorwayToWall(lobby, "WallSouth", 0, FLOOR_Y)
+	end
+
+	-- Living Room (cx=60, cz=30, 45x45) — south wall faces corridor (corridor Z=+9)
+	local livingRoom = mansion:FindFirstChild("LivingRoom")
+	if livingRoom then
+		MansionBuilder.addDoorwayToWall(livingRoom, "WallSouth", 0, FLOOR_Y)
+	end
+
+	-- Kitchen (cx=100, cz=30, 45x45) — south wall faces corridor
+	local kitchen = mansion:FindFirstChild("Kitchen")
+	if kitchen then
+		MansionBuilder.addDoorwayToWall(kitchen, "WallSouth", 0, FLOOR_Y)
+	end
+
+	-- Drama Room (cx=60, cz=-35, 45x45) — north wall faces corridor
+	local dramaRoom = mansion:FindFirstChild("DramaRoom")
+	if dramaRoom then
+		MansionBuilder.addDoorwayToWall(dramaRoom, "WallNorth", 0, FLOOR_Y)
+	end
+
+	-- Confession Booth (cx=100, cz=-35, 25x25) — north wall faces corridor
+	local confession = mansion:FindFirstChild("ConfessionBooth")
+	if confession then
+		MansionBuilder.addDoorwayToWall(confession, "WallNorth", 0, FLOOR_Y)
+	end
+
+	-- Elimination Room (cx=150, cz=-35, 50x50) — north wall faces corridor
+	local elimination = mansion:FindFirstChild("EliminationRoom")
+	if elimination then
+		MansionBuilder.addDoorwayToWall(elimination, "WallNorth", 0, FLOOR_Y)
+	end
+end
+
+-- ============================================================
+-- ADD EXTERIOR WINDOWS — Glass windows on outer walls
+-- ============================================================
+
+function MansionBuilder.addExteriorWindows(mansion)
+	local shell = mansion:FindFirstChild("OuterShell")
+	if not shell then return end
+
+	local winH = 6
+	local winW = 8
+	local winD = 0.5
+
+	-- Kitchen windows on north outer wall (kitchen faces north, city views)
+	-- Kitchen is at cx=100, cz=30, so windows on the north outer wall at Z=OUTER_Z_MAX
+	for i = 1, 3 do
+		local wx = 80 + (i - 1) * 15
+		MansionBuilder.createWindow(shell,
+			Vector3.new(wx, WALL_HEIGHT / 2 + 2, OUTER_Z_MAX - 0.2),
+			Vector3.new(winW, winH, winD),
+			"KitchenWin" .. i)
+	end
+
+	-- Living Room windows on north outer wall
+	for i = 1, 2 do
+		local wx = 45 + (i - 1) * 18
+		MansionBuilder.createWindow(shell,
+			Vector3.new(wx, WALL_HEIGHT / 2 + 2, OUTER_Z_MAX - 0.2),
+			Vector3.new(winW, winH, winD),
+			"LivingWin" .. i)
+	end
+
+	-- South wall windows (Drama Room, Elimination Room)
+	for i = 1, 3 do
+		local wx = 50 + (i - 1) * 20
+		MansionBuilder.createWindow(shell,
+			Vector3.new(wx, WALL_HEIGHT / 2 + 2, OUTER_Z_MIN + 0.2),
+			Vector3.new(winW, winH, winD),
+			"SouthWin" .. i)
+	end
+
+	-- Upper floor windows (bedrooms) — north side
+	for i = 1, 4 do
+		local wx = 50 + (i - 1) * 35
+		MansionBuilder.createWindow(shell,
+			Vector3.new(wx, FLOOR2_Y + WALL_HEIGHT / 2 + 2, OUTER_Z_MAX - 0.2),
+			Vector3.new(winW, winH, winD),
+			"UpperNorthWin" .. i)
+	end
+
+	-- Upper floor windows — south side
+	for i = 1, 4 do
+		local wx = 50 + (i - 1) * 35
+		MansionBuilder.createWindow(shell,
+			Vector3.new(wx, FLOOR2_Y + WALL_HEIGHT / 2 + 2, OUTER_Z_MIN + 0.2),
+			Vector3.new(winW, winH, winD),
+			"UpperSouthWin" .. i)
+	end
+
+	-- East wall windows
+	for i = 1, 2 do
+		local wz = -20 + (i - 1) * 40
+		MansionBuilder.createWindow(shell,
+			Vector3.new(OUTER_X_MAX - 0.2, WALL_HEIGHT / 2 + 2, wz),
+			Vector3.new(winD, winH, winW),
+			"EastWin" .. i)
+	end
 end
 
 -- ============================================================
@@ -687,7 +1120,7 @@ function MansionBuilder.buildExterior(parent)
 end
 
 -- ============================================================
--- THE LOBBY — Circular luxury entrance
+-- THE LOBBY — Luxury entrance (NO spawn here — spawn is at Hollywood)
 -- ============================================================
 
 function MansionBuilder.buildLobby(parent)
@@ -709,7 +1142,7 @@ function MansionBuilder.buildLobby(parent)
 		Vector3.new(cx, WALL_HEIGHT, cz),
 		Vector3.new(roomW, 1, roomD), DARK)
 
-	-- Walls
+	-- Walls (all 4 walls — doorways added later)
 	MansionBuilder.createPart(lobby, "WallWest",
 		Vector3.new(cx - roomW / 2, WALL_HEIGHT / 2, cz),
 		Vector3.new(1, WALL_HEIGHT, roomD), WALL_COLOR)
@@ -719,11 +1152,15 @@ function MansionBuilder.buildLobby(parent)
 	MansionBuilder.createPart(lobby, "WallSouth",
 		Vector3.new(cx, WALL_HEIGHT / 2, cz - roomD / 2),
 		Vector3.new(roomW, WALL_HEIGHT, 1), WALL_COLOR)
+	MansionBuilder.createPart(lobby, "WallEast",
+		Vector3.new(cx + roomW / 2, WALL_HEIGHT / 2, cz),
+		Vector3.new(1, WALL_HEIGHT, roomD), WALL_COLOR)
 
 	-- Gold floor neon trim
 	MansionBuilder.createNeon(lobby, "FloorTrimN", Vector3.new(cx, 0.1, cz + roomD / 2 - 1), Vector3.new(roomW - 2, 0.2, 0.3), GOLD)
 	MansionBuilder.createNeon(lobby, "FloorTrimS", Vector3.new(cx, 0.1, cz - roomD / 2 + 1), Vector3.new(roomW - 2, 0.2, 0.3), GOLD)
 	MansionBuilder.createNeon(lobby, "FloorTrimW", Vector3.new(cx - roomW / 2 + 1, 0.1, cz), Vector3.new(0.3, 0.2, roomD - 2), GOLD)
+	MansionBuilder.createNeon(lobby, "FloorTrimE", Vector3.new(cx + roomW / 2 - 1, 0.1, cz), Vector3.new(0.3, 0.2, roomD - 2), GOLD)
 
 	-- Gold ceiling cove trim
 	MansionBuilder.createNeon(lobby, "CeilTrimN", Vector3.new(cx, WALL_HEIGHT - 0.3, cz + roomD / 2 - 1), Vector3.new(roomW - 2, 0.2, 0.3), GOLD)
@@ -753,13 +1190,11 @@ function MansionBuilder.buildLobby(parent)
 
 	-- 4 curved cream couches arranged in circle facing center
 	local couchPositions = {
-		{pos = Vector3.new(cx, 0, cz + 12), rot = Vector3.new(0, 0, 0)},    -- North facing south
-		{pos = Vector3.new(cx, 0, cz - 12), rot = Vector3.new(0, 180, 0)},  -- South facing north
-		{pos = Vector3.new(cx + 12, 0, cz), rot = Vector3.new(0, -90, 0)},  -- East facing west
-		{pos = Vector3.new(cx - 12, 0, cz), rot = Vector3.new(0, 90, 0)},   -- West facing east (closer to wall, shift a bit)
+		{pos = Vector3.new(cx, 0, cz + 12), rot = Vector3.new(0, 0, 0)},
+		{pos = Vector3.new(cx, 0, cz - 12), rot = Vector3.new(0, 180, 0)},
+		{pos = Vector3.new(cx + 12, 0, cz), rot = Vector3.new(0, -90, 0)},
+		{pos = Vector3.new(cx - 10, 0, cz), rot = Vector3.new(0, 90, 0)},
 	}
-	-- Adjust the west couch away from wall
-	couchPositions[4].pos = Vector3.new(cx - 10, 0, cz)
 
 	for i, cData in ipairs(couchPositions) do
 		MansionBuilder.createCouch(lobby, cData.pos + Vector3.new(0, 1.5, 0),
@@ -839,14 +1274,13 @@ function MansionBuilder.buildLobby(parent)
 	MansionBuilder.createPlant(lobby, Vector3.new(cx + 20, 0, cz - 20), 7)
 	MansionBuilder.createPlant(lobby, Vector3.new(cx + 20, 0, cz + 5), 8)
 
-	-- Spawn point (invisible)
-	local spawn = Instance.new("SpawnLocation")
-	spawn.Position = Vector3.new(cx, 2, cz)
-	spawn.Size = Vector3.new(6, 1, 6)
-	spawn.Anchored = true
-	spawn.CanCollide = false
-	spawn.Transparency = 1
-	spawn.Parent = lobby
+	-- Lobby teleport destination (where bus passengers arrive)
+	-- No SpawnLocation here — spawn is at Hollywood station
+	local arrivalMark = MansionBuilder.createPart(lobby, "ArrivalPoint",
+		Vector3.new(cx, 0.1, cz),
+		Vector3.new(8, 0.2, 8), GOLD, Enum.Material.Neon)
+	arrivalMark.Transparency = 0.8
+	arrivalMark.CanCollide = false
 end
 
 -- ============================================================
@@ -862,7 +1296,6 @@ function MansionBuilder.buildConfessionBooth(parent)
 		PURPLE_DARK, Color3.fromHex("#120820"), DARK, Enum.Material.Marble)
 
 	-- Override floor with dark dramatic marble
-	-- The floor neon trims are already purple-ish from gold but let's add purple floor glow
 	MansionBuilder.createNeon(room, "PurpleFloorGlow",
 		Vector3.new(cx, 0.15, cz),
 		Vector3.new(roomW - 4, 0.2, roomD - 4), PURPLE)
@@ -905,7 +1338,6 @@ function MansionBuilder.buildConfessionBooth(parent)
 		Vector3.new(0.5, 2, 0.3), GOLD_BRIGHT)
 
 	-- Two palm tree neon signs flanking (purple/blue)
-	-- Left palm neon
 	MansionBuilder.createNeon(room, "PalmLeftTrunk",
 		Vector3.new(cx - 8, 8, cz + roomD / 2 - 1),
 		Vector3.new(0.5, 6, 0.3), PURPLE)
@@ -915,7 +1347,6 @@ function MansionBuilder.buildConfessionBooth(parent)
 	MansionBuilder.createNeon(room, "PalmLeftLeaf2",
 		Vector3.new(cx - 7, 12, cz + roomD / 2 - 1),
 		Vector3.new(3, 0.5, 0.3), SKY_BLUE)
-	-- Right palm neon
 	MansionBuilder.createNeon(room, "PalmRightTrunk",
 		Vector3.new(cx + 8, 8, cz + roomD / 2 - 1),
 		Vector3.new(0.5, 6, 0.3), PURPLE)
@@ -973,7 +1404,7 @@ function MansionBuilder.buildRooftop(parent)
 	MansionBuilder.createNeon(rooftop, "RailTopE", Vector3.new(cx + roofW / 2, ry + 4.1, cz), Vector3.new(1.2, 0.3, roofD), GOLD)
 	MansionBuilder.createNeon(rooftop, "RailTopW", Vector3.new(cx - roofW / 2, ry + 4.1, cz), Vector3.new(1.2, 0.3, roofD), GOLD)
 
-	-- Infinity pool (large blue transparent cylinder, kidney/oval shape)
+	-- Infinity pool
 	local pool = Instance.new("Part")
 	pool.Name = "Pool"
 	pool.Shape = Enum.PartType.Cylinder
@@ -1054,7 +1485,7 @@ function MansionBuilder.buildRooftop(parent)
 	MansionBuilder.createPlant(rooftop, Vector3.new(cx + 50, ry, cz - 40), 9)
 
 	-- "Party" neon sign on building wall side
-	local partySign = MansionBuilder.createSign(rooftop, "PARTY",
+	MansionBuilder.createSign(rooftop, "PARTY",
 		Vector3.new(cx - roofW / 2 + 2, ry + 6, cz), 10, NEON_PINK)
 
 	MansionBuilder.createNeon(rooftop, "PartyGlow",
@@ -1130,7 +1561,6 @@ function MansionBuilder.buildKitchen(parent)
 		Vector3.new(16, 0.2, 0.3), GOLD)
 
 	-- Neon heart sign on side wall (pink)
-	-- Heart shape with 2 bumps + V bottom using neon parts
 	MansionBuilder.createNeon(room, "HeartL",
 		Vector3.new(cx - roomW / 2 + 1, 9, cz),
 		Vector3.new(0.3, 2, 2), NEON_PINK)
@@ -1140,14 +1570,6 @@ function MansionBuilder.buildKitchen(parent)
 	MansionBuilder.createNeon(room, "HeartV",
 		Vector3.new(cx - roomW / 2 + 1, 7.5, cz + 1),
 		Vector3.new(0.3, 1.5, 1), NEON_PINK)
-
-	-- Large window wall (glass) — east wall with city view
-	local windowWall = room:FindFirstChild("WallEast")
-	if windowWall then
-		windowWall.Material = Enum.Material.Glass
-		windowWall.Color = GLASS_BLUE
-		windowWall.Transparency = 0.5
-	end
 
 	-- Flowers in vases on counter
 	MansionBuilder.createFlowerVase(room, Vector3.new(cx - 8, 4, cz + roomD / 2 - 2))
@@ -1193,6 +1615,15 @@ function MansionBuilder.buildCorridor(parent)
 		Vector3.new(cx, WALL_HEIGHT, cz),
 		Vector3.new(corrLen, 1, corrWidth), DARK)
 
+	-- Corridor walls (north and south) — these are the interior corridor walls
+	-- Rooms branch off from these walls via doorways
+	MansionBuilder.createPart(corr, "WallNorth",
+		Vector3.new(cx, WALL_HEIGHT / 2, cz + corrWidth / 2),
+		Vector3.new(corrLen, WALL_HEIGHT, 1), WALL_COLOR)
+	MansionBuilder.createPart(corr, "WallSouth",
+		Vector3.new(cx, WALL_HEIGHT / 2, cz - corrWidth / 2),
+		Vector3.new(corrLen, WALL_HEIGHT, 1), WALL_COLOR)
+
 	-- Gold LED strips along ceiling edges
 	MansionBuilder.createNeon(corr, "CeilStripN",
 		Vector3.new(cx, WALL_HEIGHT - 0.3, cz + corrWidth / 2 - 0.5),
@@ -1212,9 +1643,7 @@ function MansionBuilder.buildCorridor(parent)
 	-- Wall sconces every 15 studs
 	local startX = cx - corrLen / 2 + 10
 	local endX = cx + corrLen / 2 - 10
-	local sconceIndex = 0
 	for x = startX, endX, 15 do
-		sconceIndex = sconceIndex + 1
 		-- North wall sconce
 		MansionBuilder.createSconce(corr,
 			Vector3.new(x, 8, cz + corrWidth / 2 - 1),
@@ -1226,9 +1655,7 @@ function MansionBuilder.buildCorridor(parent)
 	end
 
 	-- Framed art on walls (every 20 studs)
-	local artIndex = 0
 	for x = startX + 7, endX, 20 do
-		artIndex = artIndex + 1
 		-- North wall art
 		MansionBuilder.createArtFrame(corr,
 			Vector3.new(x, 7, cz + corrWidth / 2 - 0.5),
@@ -1243,6 +1670,111 @@ function MansionBuilder.buildCorridor(parent)
 	for x = startX + 15, endX, 30 do
 		MansionBuilder.createFlowerVase(corr, Vector3.new(x, 0, cz + 5))
 		MansionBuilder.createFlowerVase(corr, Vector3.new(x, 0, cz - 5))
+	end
+
+	-- Add doorways in corridor walls to connect to rooms
+	-- Living Room is at Z=30, corridor north wall at Z=9 — doorway at X=60
+	MansionBuilder.addDoorwayToWall(corr, "WallNorth", -50, FLOOR_Y) -- offset: 60 - 110 = -50
+
+	-- Kitchen at Z=30, corridor north wall — doorway at X=100
+	-- We need a second doorway in the north wall. Since addDoorwayToWall destroys the wall,
+	-- we handle corridor doorways differently: we build the corridor walls with gaps
+
+	-- Actually, let's rebuild corridor walls with multiple doorway openings
+	-- Remove the solid north and south walls and replace with segmented walls
+
+	local northWall = corr:FindFirstChild("WallNorth")
+	local southWall = corr:FindFirstChild("WallSouth")
+
+	if northWall then northWall:Destroy() end
+	if southWall then southWall:Destroy() end
+
+	-- North wall doorways: Living Room (X=60), Kitchen (X=100)
+	local northDoors = {60, 100} -- X positions of doorway centers
+	-- South wall doorways: Drama Room (X=60), Confession (X=100), Elimination (X=150)
+	local southDoors = {60, 100, 150}
+
+	-- Build north wall segments with doorway gaps
+	MansionBuilder._buildSegmentedWall(corr, "CorrWallN",
+		cx - corrLen / 2, cx + corrLen / 2,      -- X range
+		WALL_HEIGHT / 2, cz + corrWidth / 2,     -- Y center, Z position
+		WALL_HEIGHT, 1,                           -- height, thickness (Z)
+		northDoors, DOORWAY_WIDTH, DOORWAY_HEIGHT,
+		WALL_COLOR, true)                         -- isXWall=true
+
+	-- Build south wall segments with doorway gaps
+	MansionBuilder._buildSegmentedWall(corr, "CorrWallS",
+		cx - corrLen / 2, cx + corrLen / 2,
+		WALL_HEIGHT / 2, cz - corrWidth / 2,
+		WALL_HEIGHT, 1,
+		southDoors, DOORWAY_WIDTH, DOORWAY_HEIGHT,
+		WALL_COLOR, true)
+end
+
+-- ============================================================
+-- Helper: Build a wall along X with multiple doorway openings
+-- ============================================================
+
+function MansionBuilder._buildSegmentedWall(parent, baseName, xMin, xMax, yCen, zPos, wallH, wallThick, doorXPositions, doorW, doorH, wallColor, isXWall)
+	-- Sort door positions
+	table.sort(doorXPositions)
+
+	local segIdx = 0
+	local prevEnd = xMin
+
+	for _, doorX in ipairs(doorXPositions) do
+		local doorLeft = doorX - doorW / 2
+		local doorRight = doorX + doorW / 2
+
+		-- Segment before this door
+		local segLen = doorLeft - prevEnd
+		if segLen > 0.5 then
+			segIdx = segIdx + 1
+			local segCx = prevEnd + segLen / 2
+			MansionBuilder.createPart(parent, baseName .. "_Seg" .. segIdx,
+				Vector3.new(segCx, yCen, zPos),
+				Vector3.new(segLen, wallH, wallThick),
+				wallColor or WALL_COLOR)
+		end
+
+		-- Above-door segment
+		local aboveH = wallH - doorH
+		if aboveH > 0.5 then
+			segIdx = segIdx + 1
+			local aboveCy = yCen + wallH / 2 - aboveH / 2
+			MansionBuilder.createPart(parent, baseName .. "_Above" .. segIdx,
+				Vector3.new(doorX, aboveCy, zPos),
+				Vector3.new(doorW, aboveH, wallThick),
+				wallColor or WALL_COLOR)
+		end
+
+		-- Gold door frame
+		local doorBottomY = yCen - wallH / 2
+		-- Left jamb
+		MansionBuilder.createPart(parent, baseName .. "_FrameL" .. segIdx,
+			Vector3.new(doorLeft, doorBottomY + doorH / 2, zPos),
+			Vector3.new(DOOR_FRAME_THICKNESS, doorH, wallThick + 0.4), GOLD, Enum.Material.Metal)
+		-- Right jamb
+		MansionBuilder.createPart(parent, baseName .. "_FrameR" .. segIdx,
+			Vector3.new(doorRight, doorBottomY + doorH / 2, zPos),
+			Vector3.new(DOOR_FRAME_THICKNESS, doorH, wallThick + 0.4), GOLD, Enum.Material.Metal)
+		-- Top lintel
+		MansionBuilder.createPart(parent, baseName .. "_FrameT" .. segIdx,
+			Vector3.new(doorX, doorBottomY + doorH, zPos),
+			Vector3.new(doorW + DOOR_FRAME_THICKNESS * 2, DOOR_FRAME_THICKNESS, wallThick + 0.4), GOLD, Enum.Material.Metal)
+
+		prevEnd = doorRight
+	end
+
+	-- Final segment after last door
+	local lastSegLen = xMax - prevEnd
+	if lastSegLen > 0.5 then
+		segIdx = segIdx + 1
+		local segCx = prevEnd + lastSegLen / 2
+		MansionBuilder.createPart(parent, baseName .. "_Seg" .. segIdx,
+			Vector3.new(segCx, yCen, zPos),
+			Vector3.new(lastSegLen, wallH, wallThick),
+			wallColor or WALL_COLOR)
 	end
 end
 
@@ -1295,7 +1827,6 @@ function MansionBuilder.buildEliminationRoom(parent)
 	spot.Parent = spotPart
 
 	-- Pink neon rings on floor around podium (2 concentric)
-	-- Inner ring (approximated with octagon of neon parts)
 	for ring = 1, 2 do
 		local r = 5 + ring * 4
 		for seg = 1, 12 do
@@ -1387,11 +1918,9 @@ function MansionBuilder.buildLivingRoom(parent)
 		Vector3.new(cx, WALL_HEIGHT - 2, cz - roomD / 2 + 1), 12, NEON_PINK)
 
 	-- L-shaped sectional couch (cream/beige)
-	-- Long part
 	MansionBuilder.createCouch(room,
 		Vector3.new(cx - 10, 1.5, cz + 10),
 		Vector3.new(14, 2.5, 5), Vector3.new(0, 0, 0), COUCH_CREAM)
-	-- Short part (perpendicular)
 	MansionBuilder.createCouch(room,
 		Vector3.new(cx - 15, 1.5, cz + 4),
 		Vector3.new(8, 2.5, 5), Vector3.new(0, 90, 0), COUCH_CREAM)
@@ -1520,7 +2049,6 @@ function MansionBuilder.buildDramaRoom(parent)
 		Vector3.new(18, 2, 18), Color3.fromHex("#1A0A0A"), Enum.Material.Marble)
 
 	-- Boxing ring-style roped area for confrontations
-	-- 4 corner posts
 	local ringCx, ringCz = cx, cz + 5
 	local ringHalf = 8
 	local postPositions = {
@@ -1680,65 +2208,56 @@ function MansionBuilder.buildElevator(parent)
 	elevPL.Range = 20
 	elevPL.Parent = elevLight
 
-	-- TweenService elevator movement script
-	-- Create a Script inside the elevator to handle movement
-	local elevScript = Instance.new("Script")
-	elevScript.Name = "ElevatorController"
-	elevScript.Source = [[
-local TweenService = game:GetService("TweenService")
+	-- Wire elevator movement directly (no Script.Source needed)
+	local TweenService = game:GetService("TweenService")
+	local elevPlatform = elev:FindFirstChild("ElevatorPlatform")
 
-local elevator = script.Parent
-local platform = elevator:WaitForChild("ElevatorPlatform")
+	local FLOOR_POSITIONS = {
+		Ground = 0.5,
+		Floor2 = FLOOR2_Y + 0.5,
+		Rooftop = FLOOR2_Y + WALL_HEIGHT + 2.5,
+	}
 
-local FLOOR_POSITIONS = {
-	Ground = 0.5,
-	Floor2 = ]] .. tostring(FLOOR2_Y + 0.5) .. [[,
-	Rooftop = ]] .. tostring(FLOOR2_Y + WALL_HEIGHT + 2.5) .. [[,
-}
+	local isMoving = false
+	local currentFloor = "Ground"
 
-local isMoving = false
-local currentFloor = "Ground"
+	local function moveToFloor(targetFloor)
+		if isMoving then return end
+		if currentFloor == targetFloor then return end
+		isMoving = true
 
-local function moveToFloor(targetFloor)
-	if isMoving then return end
-	if currentFloor == targetFloor then return end
-	isMoving = true
+		local targetY = FLOOR_POSITIONS[targetFloor]
+		if elevPlatform then
+			local tweenInfo = TweenInfo.new(3, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut)
+			local tween = TweenService:Create(elevPlatform, tweenInfo, {
+				Position = Vector3.new(elevPlatform.Position.X, targetY, elevPlatform.Position.Z)
+			})
+			tween:Play()
+			tween.Completed:Wait()
+		end
+		currentFloor = targetFloor
+		isMoving = false
+	end
 
-	local targetY = FLOOR_POSITIONS[targetFloor]
-	local tweenInfo = TweenInfo.new(3, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut)
-	local tween = TweenService:Create(platform, tweenInfo, {
-		Position = Vector3.new(platform.Position.X, targetY, platform.Position.Z)
-	})
-	tween:Play()
-	tween.Completed:Wait()
-	currentFloor = targetFloor
-	isMoving = false
-end
+	-- Connect call buttons
+	task.spawn(function()
+		local callGround = elev:FindFirstChild("CallGround")
+		local callFloor2 = elev:FindFirstChild("CallFloor2")
+		local callRooftop = elev:FindFirstChild("CallRooftop")
 
--- Connect call buttons
-local callGround = elevator:FindFirstChild("CallGround")
-local callFloor2 = elevator:FindFirstChild("CallFloor2")
-local callRooftop = elevator:FindFirstChild("CallRooftop")
-
-if callGround then
-	callGround:FindFirstChildOfClass("ClickDetector").MouseClick:Connect(function()
-		moveToFloor("Ground")
+		if callGround then
+			local cd = callGround:FindFirstChildOfClass("ClickDetector")
+			if cd then cd.MouseClick:Connect(function() moveToFloor("Ground") end) end
+		end
+		if callFloor2 then
+			local cd = callFloor2:FindFirstChildOfClass("ClickDetector")
+			if cd then cd.MouseClick:Connect(function() moveToFloor("Floor2") end) end
+		end
+		if callRooftop then
+			local cd = callRooftop:FindFirstChildOfClass("ClickDetector")
+			if cd then cd.MouseClick:Connect(function() moveToFloor("Rooftop") end) end
+		end
 	end)
-end
-
-if callFloor2 then
-	callFloor2:FindFirstChildOfClass("ClickDetector").MouseClick:Connect(function()
-		moveToFloor("Floor2")
-	end)
-end
-
-if callRooftop then
-	callRooftop:FindFirstChildOfClass("ClickDetector").MouseClick:Connect(function()
-		moveToFloor("Rooftop")
-	end)
-end
-]]
-	elevScript.Parent = elev
 end
 
 -- ============================================================
@@ -1750,13 +2269,46 @@ function MansionBuilder.buildBedroomFloor(parent)
 	floor2.Name = "BedroomFloor"
 	floor2.Parent = parent
 
-	-- Upper floor base (between bedroom rows)
+	-- Upper floor corridor base
 	MansionBuilder.createPart(floor2, "Floor",
 		Vector3.new(110, FLOOR2_Y - 0.5, 0),
 		Vector3.new(170, 1, 18), MARBLE_WHITE, Enum.Material.Marble)
 	MansionBuilder.createPart(floor2, "Ceiling",
 		Vector3.new(110, FLOOR2_Y + WALL_HEIGHT, 0),
 		Vector3.new(170, 1, 18), DARK)
+
+	-- Upper corridor walls (north and south) with doorways to bedrooms
+	-- Rooms 1-5 are north (positive Z), rooms 6-10 are south (negative Z)
+	-- Bedroom positions: col = (roomNum-1) for 1-5, (roomNum-6) for 6-10
+	-- cx = 40 + col * 32
+
+	local northDoorPositions = {}
+	local southDoorPositions = {}
+	for i = 1, 10 do
+		local col = i <= 5 and (i - 1) or (i - 6)
+		local doorX = 40 + col * 32
+		if i <= 5 then
+			table.insert(northDoorPositions, doorX)
+		else
+			table.insert(southDoorPositions, doorX)
+		end
+	end
+
+	-- Build north corridor wall with doorways
+	MansionBuilder._buildSegmentedWall(floor2, "UpperCorrN",
+		25, 195,           -- X range
+		FLOOR2_Y + WALL_HEIGHT / 2, 9,  -- Y center, Z position (north side of 18-wide corridor)
+		WALL_HEIGHT, 1,
+		northDoorPositions, DOORWAY_WIDTH, DOORWAY_HEIGHT,
+		WALL_COLOR, true)
+
+	-- Build south corridor wall with doorways
+	MansionBuilder._buildSegmentedWall(floor2, "UpperCorrS",
+		25, 195,
+		FLOOR2_Y + WALL_HEIGHT / 2, -9,
+		WALL_HEIGHT, 1,
+		southDoorPositions, DOORWAY_WIDTH, DOORWAY_HEIGHT,
+		WALL_COLOR, true)
 
 	-- Upper corridor gold trim
 	MansionBuilder.createNeon(floor2, "UpperTrimN",
@@ -1823,6 +2375,9 @@ function MansionBuilder.buildBedroom(parent, roomNum)
 		Vector3.new(cx + bw / 2, FLOOR2_Y + WALL_HEIGHT / 2, cz),
 		Vector3.new(1, WALL_HEIGHT, bd), wallCol)
 
+	-- Front wall (corridor side) — has doorway, built by the corridor wall segments
+	-- So we do NOT add a front wall here; the corridor wall handles it
+
 	-- Room-colored accent wall (back wall overlay strip)
 	MansionBuilder.createPart(room, "AccentWall",
 		Vector3.new(cx, FLOOR2_Y + WALL_HEIGHT / 2, cz + side * (bd / 2 - 0.3)),
@@ -1855,19 +2410,15 @@ function MansionBuilder.buildBedroom(parent, roomNum)
 
 	if config.master then
 		-- ===== CROWN SUITE: Extra large, golden everything =====
-
-		-- Grand bed (oversized, gold frame)
 		MansionBuilder.createPart(room, "BedFrame",
 			Vector3.new(cx, FLOOR2_Y + 1, cz + side * 5),
 			Vector3.new(12, 2, 10), GOLD, Enum.Material.Metal)
 		MansionBuilder.createPart(room, "Mattress",
 			Vector3.new(cx, FLOOR2_Y + 2.5, cz + side * 5),
 			Vector3.new(11, 1.5, 9), CREAM, Enum.Material.Fabric)
-		-- Headboard
 		MansionBuilder.createPart(room, "Headboard",
 			Vector3.new(cx, FLOOR2_Y + 5, cz + side * 9.5),
 			Vector3.new(12, 6, 1), GOLD, Enum.Material.Metal)
-		-- Pillows
 		MansionBuilder.createPart(room, "Pillow1",
 			Vector3.new(cx - 3, FLOOR2_Y + 3.5, cz + side * 8),
 			Vector3.new(3, 1, 2), GOLD_BRIGHT, Enum.Material.Fabric)
@@ -1882,7 +2433,6 @@ function MansionBuilder.buildBedroom(parent, roomNum)
 		MansionBuilder.createPart(room, "ThroneBack",
 			Vector3.new(cx - 8, FLOOR2_Y + 5, cz - side * 3.5),
 			Vector3.new(4, 6, 1), GOLD, Enum.Material.Metal)
-		-- Throne cushion
 		MansionBuilder.createPart(room, "ThroneCushion",
 			Vector3.new(cx - 8, FLOOR2_Y + 3.2, cz - side * 2),
 			Vector3.new(3.5, 0.8, 3.5), CRIMSON, Enum.Material.Fabric)
@@ -1920,8 +2470,6 @@ function MansionBuilder.buildBedroom(parent, roomNum)
 
 	elseif config.exile then
 		-- ===== DOG HOUSE: Bare, cold, single dim light =====
-
-		-- Thin mattresses on floor (no frame)
 		MansionBuilder.createPart(room, "Mattress1",
 			Vector3.new(cx - 5, FLOOR2_Y + 0.3, cz + side * 4),
 			Vector3.new(4, 0.5, 7), Color3.new(0.15, 0.15, 0.15), Enum.Material.Fabric)
@@ -1929,7 +2477,6 @@ function MansionBuilder.buildBedroom(parent, roomNum)
 			Vector3.new(cx + 5, FLOOR2_Y + 0.3, cz + side * 4),
 			Vector3.new(4, 0.5, 7), Color3.new(0.15, 0.15, 0.15), Enum.Material.Fabric)
 
-		-- Sad thin pillows
 		MansionBuilder.createPart(room, "SadPillow1",
 			Vector3.new(cx - 5, FLOOR2_Y + 0.7, cz + side * 7),
 			Vector3.new(2, 0.3, 1.5), Color3.new(0.25, 0.25, 0.25), Enum.Material.Fabric)
@@ -1937,7 +2484,6 @@ function MansionBuilder.buildBedroom(parent, roomNum)
 			Vector3.new(cx + 5, FLOOR2_Y + 0.7, cz + side * 7),
 			Vector3.new(2, 0.3, 1.5), Color3.new(0.25, 0.25, 0.25), Enum.Material.Fabric)
 
-		-- Single dim light (weak)
 		local dimBulb = MansionBuilder.createPart(room, "DimBulb",
 			Vector3.new(cx, FLOOR2_Y + WALL_HEIGHT - 1, cz),
 			Vector3.new(1, 1, 1), Color3.new(0.3, 0.3, 0.2), Enum.Material.Neon)
@@ -1948,32 +2494,23 @@ function MansionBuilder.buildBedroom(parent, roomNum)
 		dimLight.Range = 15
 		dimLight.Parent = dimBulb
 
-		-- Shame sign
 		MansionBuilder.createSign(room, "You know what you did.",
 			Vector3.new(cx, FLOOR2_Y + 5, cz + side * (bd / 2 - 1.5)), 10, Color3.new(0.3, 0.3, 0.3))
 
-		-- No comfort items, bare walls, cold
-
 	else
 		-- ===== STANDARD LUXURY BEDROOM =====
-
-		-- Two proper beds with frames
 		for bedI = -1, 1, 2 do
 			local bx = cx + bedI * 6
 
-			-- Bed frame
 			MansionBuilder.createPart(room, "BedFrame" .. (bedI == -1 and "1" or "2"),
 				Vector3.new(bx, FLOOR2_Y + 0.8, cz + side * 5),
 				Vector3.new(6, 1.5, 9), config.color, Enum.Material.SmoothPlastic)
-			-- Mattress
 			MansionBuilder.createPart(room, "Mattress" .. (bedI == -1 and "1" or "2"),
 				Vector3.new(bx, FLOOR2_Y + 2, cz + side * 5),
 				Vector3.new(5.5, 1, 8.5), CREAM, Enum.Material.Fabric)
-			-- Headboard
 			MansionBuilder.createPart(room, "Headboard" .. (bedI == -1 and "1" or "2"),
 				Vector3.new(bx, FLOOR2_Y + 4, cz + side * 9),
 				Vector3.new(6, 4, 0.8), config.color, Enum.Material.SmoothPlastic)
-			-- Pillow
 			MansionBuilder.createPart(room, "Pillow" .. (bedI == -1 and "1" or "2"),
 				Vector3.new(bx, FLOOR2_Y + 2.8, cz + side * 8),
 				Vector3.new(3, 0.6, 2), Color3.new(1, 1, 1), Enum.Material.Fabric)
@@ -1998,7 +2535,6 @@ function MansionBuilder.buildBedroom(parent, roomNum)
 			Vector3.new(cx - bw / 2 + 1, FLOOR2_Y + 6, cz - side * 2),
 			Vector3.new(0.3, 4, 3), Color3.new(0.8, 0.85, 0.9), Enum.Material.Glass)
 		bedroomMirror.Reflectance = 0.7
-		-- Mirror gold frame
 		MansionBuilder.createPart(room, "MirrorFrame",
 			Vector3.new(cx - bw / 2 + 1, FLOOR2_Y + 6, cz - side * 2),
 			Vector3.new(0.35, 4.5, 3.5), GOLD, Enum.Material.Metal)
@@ -2011,7 +2547,7 @@ end
 
 function MansionBuilder.setupLighting()
 	local lighting = game:GetService("Lighting")
-	lighting.ClockTime = 21 -- Evening mood, visible but dramatic
+	lighting.ClockTime = 21
 	lighting.Ambient = Color3.fromHex("#2A1E35")
 	lighting.OutdoorAmbient = Color3.fromHex("#1A1225")
 	lighting.Brightness = 1.5

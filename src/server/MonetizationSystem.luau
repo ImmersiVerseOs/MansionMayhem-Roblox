@@ -18,25 +18,25 @@ local MonetizationSystem = {}
 
 MonetizationSystem.GAME_PASSES = {
 	VIP = {
-		id = 0,
+		id = 1760523514,
 		name = "VIP Pass",
 		description = "Gold name tag, VIP lounge access, exclusive outfit colors",
 		price = 499,
 	},
 	DoubleXP = {
-		id = 0,
+		id = 1761417564,
 		name = "Double XP",
 		description = "2x XP from all activities",
 		price = 299,
 	},
 	ExtraVote = {
-		id = 0,
+		id = 1759833647,
 		name = "Extra Vote",
 		description = "Cast 2 votes during elimination instead of 1",
 		price = 399,
 	},
 	CustomRoom = {
-		id = 0,
+		id = 1761267496,
 		name = "Custom Room",
 		description = "Decorate your bedroom with exclusive items",
 		price = 199,
@@ -50,25 +50,25 @@ MonetizationSystem.GAME_PASSES = {
 
 MonetizationSystem.DEV_PRODUCTS = {
 	ImmunityToken = {
-		id = 0,
+		id = 3561185320,
 		name = "Immunity Token",
 		description = "Buy 1 immunity token to survive elimination",
 		price = 149,
 	},
 	Coins50 = {
-		id = 0,
+		id = 3561185719,
 		name = "50 Coins",
 		description = "In-game currency for the Mansion",
 		price = 49,
 	},
 	RoomUpgrade = {
-		id = 0,
+		id = 3561186318,
 		name = "Room Upgrade",
 		description = "Upgrade your bedroom temporarily",
 		price = 99,
 	},
 	ConfettiBomb = {
-		id = 0,
+		id = 3561186942,
 		name = "Confetti Bomb",
 		description = "Throw confetti on yourself (flex)",
 		price = 29,

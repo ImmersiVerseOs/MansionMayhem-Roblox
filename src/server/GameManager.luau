@@ -117,6 +117,11 @@ function GameManager.init()
 
 		-- Error messaging
 		"ErrorMessage",
+
+		-- Bus system
+		"BusCountdown",
+		"BusCinematic",
+		"BusArrive",
 	}
 
 	for _, name in events do
