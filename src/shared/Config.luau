@@ -46,4 +46,28 @@ Config.Colors = {
 	TextMuted  = Color3.fromHex("#808080"),
 }
 
+-- Private server settings
+Config.PRIVATE_SERVER = {
+	enabled = true,
+	customSettings = {
+		skipTutorial = false,
+		fastMode = false, -- shorter day phases for private games
+		maxPlayers = 20,
+	}
+}
+
+-- Game metadata
+Config.GAME_INFO = {
+	title = "Mansion of Mayhem",
+	description = "\xF0\x9F\x8F\xA0 20 players enter. 1 survivor remains.\n\nWelcome to the most dramatic mansion on Roblox! Form alliances, start drama, survive elimination nights, and fight your way to become Queen of the Week.\n\n\xF0\x9F\x91\x91 FEATURES:\n\xE2\x80\xA2 10 themed luxury bedrooms\n\xE2\x80\xA2 Weekly Queen crowning with real power\n\xE2\x80\xA2 Alliance & betrayal system\n\xE2\x80\xA2 Daily challenges for XP & coins\n\xE2\x80\xA2 Tea Wall confessions\n\xE2\x80\xA2 Dramatic elimination ceremonies\n\xE2\x80\xA2 Fight system with security response\n\xE2\x80\xA2 Immunity shards & tokens\n\xE2\x80\xA2 Full reality TV experience\n\n\xF0\x9F\x94\xA5 Can you survive the Mansion?",
+	maxPlayers = 20,
+	genre = "Social",
+	tags = {"Reality TV", "Social Deduction", "Drama", "Survival", "Multiplayer", "Roleplay"},
+	socialLinks = {
+		discord = "",
+		twitter = "",
+		youtube = "",
+	}
+}
+
 return Config

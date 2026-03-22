@@ -22,6 +22,12 @@
       "Shared": {
         "$path": "src/shared"
       }
+    },
+    "HttpService": {
+      "$className": "HttpService",
+      "$properties": {
+        "HttpEnabled": true
+      }
     }
   }
 }
